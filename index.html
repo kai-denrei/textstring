@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text String</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Literata:ital,wght@0,400;0,600;1,400&family=Source+Serif+4:wght@400;600&family=Fraunces:wght@400;600&family=Space+Grotesk:wght@400;600&family=Lora:wght@400;600&display=optional" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #121212; touch-action: none; }
+  #container {
+    position: relative;
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 0 20px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .letter {
+    position: absolute;
+    top: 0; left: 0;
+    will-change: transform;
+    line-height: 1;
+    color: #e8e4dc;
+    pointer-events: none;
+  }
+  .letter.draggable {
+    pointer-events: auto;
+    cursor: grab;
+    z-index: 10;
+    touch-action: none;
+  }
+  .letter.dragging { cursor: grabbing; }
+
+  #controls {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    width: min(300px, calc(100vw - 24px));
+    padding: 14px 16px;
+    background: rgba(20, 20, 30, 0.92);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    font: 12px/1.4 "SF Mono", ui-monospace, monospace;
+    color: #aaa;
+    z-index: 100;
+    user-select: none;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+  }
+  #controls.collapsed .ctrl-body { display: none; }
+  #controls .ctrl-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 600;
+    color: #ccc;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    min-height: 44px;
+  }
+  #controls .ctrl-header span.toggle { font-size: 16px; }
+  #controls .ctrl-body { margin-top: 10px; }
+  .ctrl-section {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .ctrl-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .ctrl-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    min-height: 36px;
+  }
+  .ctrl-row label {
+    flex: 0 0 90px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .ctrl-row input[type=range] {
+    flex: 1;
+    accent-color: #7a9ec2;
+    height: 36px;
+  }
+  .ctrl-row select {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    color: #ddd;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font: 12px "SF Mono", ui-monospace, monospace;
+    height: 36px;
+  }
+  #val-display {
+    margin-top: 4px;
+    margin-bottom: 6px;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    color: #ddd;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    min-height: 22px;
+    line-height: 14px;
+    transition: opacity 0.3s;
+  }
+  #val-display.idle { opacity: 0.4; }
+  #export-btn {
+    margin-top: 6px;
+    padding: 5px 10px;
+    background: rgba(122, 158, 194, 0.2);
+    border: 1px solid rgba(122, 158, 194, 0.4);
+    border-radius: 6px;
+    color: #7a9ec2;
+    font: 12px "SF Mono", ui-monospace, monospace;
+    cursor: pointer;
+    width: 100%;
+    min-height: 36px;
+  }
+  #export-btn:hover { background: rgba(122, 158, 194, 0.3); }
+
+  #hint {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+    font: 13px/1 "SF Mono", ui-monospace, monospace;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.8s;
+  }
+
+  #tooltip {
+    position: fixed;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    font: 12px/1.4 "SF Mono", ui-monospace, monospace;
+    color: #ccc;
+    max-width: 260px;
+    pointer-events: none;
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.15s;
+    white-space: normal;
+  }
+  #tooltip.visible { opacity: 1; }
+
+  @media (max-width: 480px) {
+    #controls { padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="container"></div>
+<div id="controls">
+  <div class="ctrl-header" id="ctrl-toggle">
+    <span>String Controls</span>
+    <span class="toggle" id="toggle-icon">-</span>
+  </div>
+  <div class="ctrl-body" id="ctrl-body">
+
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Typography</div>
+      <div class="ctrl-row">
+        <label title="Typeface for all letters. Affects widths, line breaks, and feel.">Font</label>
+        <select id="s-font" title="Typeface for all letters. Affects widths, line breaks, and feel.">
+          <option value="Inter" selected>Inter</option>
+          <option value="Literata">Literata</option>
+          <option value="Source Serif 4">Source Serif 4</option>
+          <option value="Lora">Lora</option>
+          <option value="Fraunces">Fraunces</option>
+          <option value="Space Grotesk">Space Grotesk</option>
+          <option value="Georgia">Georgia</option>
+          <option value="system-ui">System UI</option>
+        </select>
+      </div>
+      <div class="ctrl-row">
+        <label title="Letter size in px. Larger = fewer words per line, bigger particles.">Font size</label>
+        <input type="range" id="s-fontsize" min="12" max="28" step="1" value="18" title="Letter size in px. Larger = fewer words per line, bigger particles.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Vertical spacing between lines. Affects zig-zag rest length between rows.">Line height</label>
+        <input type="range" id="s-lineheight" min="16" max="48" step="1" value="26" title="Vertical spacing between lines. Affects zig-zag rest length between rows.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Paragraph width. Narrower = more lines, longer string path. Rebuilds layout.">Max width</label>
+        <input type="range" id="s-maxwidth" min="300" max="900" step="10" value="600" title="Paragraph width. Narrower = more lines, longer string path. Rebuilds layout.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Vertical gap between paragraphs. Each paragraph is its own independent chain.">Para gap</label>
+        <input type="range" id="s-paragap" min="0" max="60" step="2" value="18" title="Vertical gap between paragraphs. Each paragraph is its own independent chain.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Text opacity. Lower = more transparent, ghostly feel.">Text color</label>
+        <input type="range" id="s-textalpha" min="40" max="100" step="1" value="91" title="Text opacity. Lower = more transparent, ghostly feel.">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Physics</div>
+      <div class="ctrl-row">
+        <label title="Downward pull on unlocked letters. 0 = zero-G floating. Press F to toggle on/off.">Gravity</label>
+        <input type="range" id="s-gravity" min="0" max="50" step="1" value="40" title="Downward pull on unlocked letters. 0 = zero-G floating. Press F to toggle on/off.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Velocity kept per tick. 0.85 = heavy drag, 1.0 = no friction. Lower = letters stop faster.">Damping</label>
+        <input type="range" id="s-damping" min="85" max="100" step="0.5" value="94" title="Velocity kept per tick. 0.85 = heavy drag, 1.0 = no friction. Lower = letters stop faster.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Constraint solver passes per tick. More = stiffer string. Fewer = rubbery, elastic.">Iterations</label>
+        <input type="range" id="s-iterations" min="1" max="30" step="1" value="12" title="Constraint solver passes per tick. More = stiffer string. Fewer = rubbery, elastic.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Multiplier on natural distance between connected letters. Higher = looser string with more slack.">Rest length</label>
+        <input type="range" id="s-restlen" min="80" max="200" step="5" value="120" title="Multiplier on natural distance between connected letters. Higher = looser string with more slack.">
+      </div>
+      <div class="ctrl-row">
+        <label title="Repulsion radius between non-adjacent letters. 0 = pass through. Higher = more spread.">Collision r</label>
+        <input type="range" id="s-collision" min="0" max="20" step="1" value="7" title="Repulsion radius between non-adjacent letters. 0 = pass through. Higher = more spread.">
+      </div>
+      <div class="ctrl-row">
+        <label title="How many letters at the end start unlocked and draggable. More = easier first grab.">Drag count</label>
+        <input type="range" id="s-dragcount" min="1" max="20" step="1" value="6" title="How many letters at the end start unlocked and draggable. More = easier first grab.">
+      </div>
+    </div>
+
+    <div id="val-display" class="idle">--</div>
+    <button id="export-btn">Copy values</button>
+  </div>
+</div>
+<div id="tooltip"></div>
+<script>
+  const tip = document.getElementById('tooltip');
+  document.getElementById('controls').addEventListener('pointerenter', (e) => {
+    const row = e.target.closest('[title]');
+    if (!row) return;
+    tip.textContent = row.getAttribute('title');
+    tip.classList.add('visible');
+  }, true);
+  document.getElementById('controls').addEventListener('pointermove', (e) => {
+    const row = e.target.closest('[title]');
+    if (!row) { tip.classList.remove('visible'); return; }
+    tip.textContent = row.getAttribute('title');
+    tip.classList.add('visible');
+    const x = Math.min(e.clientX + 12, window.innerWidth - 280);
+    const y = e.clientY + 18;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }, true);
+  document.getElementById('controls').addEventListener('pointerleave', () => {
+    tip.classList.remove('visible');
+  }, true);
+</script>
+<script type="module" src="./textstring.js"></script>
+</body>
+</html>
